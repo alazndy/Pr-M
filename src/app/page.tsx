@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -13,14 +13,30 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Folder, FileText, Settings, Github } from "lucide-react"
+import { Plus, Folder, FileText, Settings, Github, CheckCircle2, Clock, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { GitHubImportDialog, type ImportedRepo } from "@/components/projects/github-import-dialog"
+import { TasksService, type Task } from "@/lib/services/tasks.service"
+import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/components/auth/AuthProvider"
 
 export default function Home() {
+  const { user } = useAuth()
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [githubDialogOpen, setGithubDialogOpen] = useState(false)
   const [projectName, setProjectName] = useState("")
+  const [allTasks, setAllTasks] = useState<Task[]>([])
+
+  // Subscribe to all tasks across all projects
+  useEffect(() => {
+    if (!user) return
+    // For now, we'll fetch tasks from all projects
+    // In a real app, you'd want to optimize this
+    const unsubscribes: (() => void)[] = []
+    return () => {
+      unsubscribes.forEach(unsub => unsub())
+    }
+  }, [user])
 
   const handleCreateProject = () => {
     if (projectName) {
@@ -154,6 +170,125 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Task Overview Section */}
+      {user && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Task Overview</CardTitle>
+                <CardDescription>Your tasks across all projects</CardDescription>
+              </div>
+              <Link href="/projects">
+                <Button variant="outline" size="sm">View All Projects</Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 mb-6">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    Completed Tasks
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {allTasks.filter(t => t.status === 'completed').length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {allTasks.length > 0 
+                      ? `${Math.round((allTasks.filter(t => t.status === 'completed').length / allTasks.length) * 100)}% completion rate`
+                      : 'No tasks yet'}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-blue-500" />
+                    In Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {allTasks.filter(t => t.status === 'in-progress').length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Active tasks
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                    Overdue
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {allTasks.filter(t => {
+                      if (!t.deadline) return false
+                      const deadlineDate = t.deadline.toDate ? t.deadline.toDate() : new Date(t.deadline)
+                      return deadlineDate < new Date() && t.status !== 'completed'
+                    }).length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Needs attention
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {allTasks.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Upcoming Deadlines</h4>
+                {allTasks
+                  .filter(t => t.deadline && t.status !== 'completed')
+                  .sort((a, b) => {
+                    const aDate = a.deadline!.toDate ? a.deadline!.toDate() : new Date(a.deadline!)
+                    const bDate = b.deadline!.toDate ? b.deadline!.toDate() : new Date(b.deadline!)
+                    return aDate.getTime() - bDate.getTime()
+                  })
+                  .slice(0, 5)
+                  .map((task) => {
+                    const deadlineDate = task.deadline!.toDate ? task.deadline!.toDate() : new Date(task.deadline!)
+                    const daysUntil = Math.ceil((deadlineDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                    const isOverdue = daysUntil < 0
+                    
+                    return (
+                      <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {deadlineDate.toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant={isOverdue ? "destructive" : "outline"}>
+                          {isOverdue ? `${Math.abs(daysUntil)}d overdue` : `${daysUntil}d left`}
+                        </Badge>
+                      </div>
+                    )
+                  })}
+                {allTasks.filter(t => t.deadline && t.status !== 'completed').length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No upcoming deadlines
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {allTasks.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No tasks yet. Create a project and add tasks to get started!
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
         <DialogContent>

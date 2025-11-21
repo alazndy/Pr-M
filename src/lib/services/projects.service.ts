@@ -10,7 +10,9 @@ import {
     where,
     serverTimestamp,
     onSnapshot,
-    Timestamp
+    Timestamp,
+    arrayUnion,
+    arrayRemove
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 
@@ -108,6 +110,28 @@ export class ProjectsService {
     static async deleteProject(projectId: string): Promise<void> {
         const docRef = doc(db, this.collectionName, projectId)
         await deleteDoc(docRef)
+    }
+
+    /**
+     * Add a Google Drive file ID to a project
+     */
+    static async addDriveFile(projectId: string, fileId: string): Promise<void> {
+        const docRef = doc(db, this.collectionName, projectId)
+        await updateDoc(docRef, {
+            driveFileIds: arrayUnion(fileId),
+            updatedAt: serverTimestamp()
+        })
+    }
+
+    /**
+     * Remove a Google Drive file ID from a project
+     */
+    static async removeDriveFile(projectId: string, fileId: string): Promise<void> {
+        const docRef = doc(db, this.collectionName, projectId)
+        await updateDoc(docRef, {
+            driveFileIds: arrayRemove(fileId),
+            updatedAt: serverTimestamp()
+        })
     }
 
     /**

@@ -6,9 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Bell, Moon, User, Shield, Globe } from "lucide-react"
+import { Bell, Moon, User, Shield, Globe, Code } from "lucide-react"
+import { useMockDataContext } from "@/contexts/MockDataContext"
 
 export default function SettingsPage() {
+    const { useMockData, setUseMockData } = useMockDataContext()
+    
     return (
         <div className="space-y-6 max-w-4xl">
             <div>
@@ -17,11 +20,12 @@ export default function SettingsPage() {
             </div>
 
             <Tabs defaultValue="general" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+                <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="appearance">Appearance</TabsTrigger>
                     <TabsTrigger value="notifications">Notifications</TabsTrigger>
                     <TabsTrigger value="security">Security</TabsTrigger>
+                    <TabsTrigger value="developer">Developer</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="general" className="space-y-4 mt-6">
@@ -174,6 +178,48 @@ export default function SettingsPage() {
                                             Current
                                         </span>
                                     </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="developer" className="space-y-4 mt-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Developer Settings</CardTitle>
+                            <CardDescription>Configure development and testing options.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <Code className="h-5 w-5 text-muted-foreground" />
+                                    <div>
+                                        <p className="font-medium">Use Mock Data</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            Show sample data in Files, Assets, and Budget pages for development and testing.
+                                        </p>
+                                    </div>
+                                </div>
+                                <Switch 
+                                    checked={useMockData}
+                                    onCheckedChange={setUseMockData}
+                                />
+                            </div>
+                            <div className="border-t pt-6">
+                                <div className="bg-muted/50 p-4 rounded-lg">
+                                    <p className="text-sm font-medium mb-2">ℹ️ About Mock Data</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        When enabled, sample data will be displayed in certain pages. This is useful for:
+                                    </p>
+                                    <ul className="text-xs text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+                                        <li>Testing UI components without real data</li>
+                                        <li>Demonstrating features to stakeholders</li>
+                                        <li>Development and debugging</li>
+                                    </ul>
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                        Your preference is saved locally and persists across sessions.
+                                    </p>
                                 </div>
                             </div>
                         </CardContent>

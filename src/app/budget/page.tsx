@@ -27,75 +27,13 @@ import {
     Tag,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-type BudgetCategory = {
-    id: string
-    name: string
-    allocated: number
-    spent: number
-    color: string
-}
-
-type Expense = {
-    id: string
-    title: string
-    amount: number
-    category: string
-    date: string
-    description: string
-    status: "approved" | "pending" | "rejected"
-}
-
-const mockCategories: BudgetCategory[] = [
-    { id: "1", name: "Development", allocated: 50000, spent: 32000, color: "bg-blue-500" },
-    { id: "2", name: "Design", allocated: 25000, spent: 18000, color: "bg-purple-500" },
-    { id: "3", name: "Marketing", allocated: 30000, spent: 22000, color: "bg-green-500" },
-    { id: "4", name: "Infrastructure", allocated: 20000, spent: 12000, color: "bg-orange-500" },
-    { id: "5", name: "Operations", allocated: 15000, spent: 9000, color: "bg-pink-500" },
-]
-
-const mockExpenses: Expense[] = [
-    {
-        id: "1",
-        title: "Cloud Hosting - AWS",
-        amount: 4500,
-        category: "Infrastructure",
-        date: "2024-03-15",
-        description: "Monthly AWS hosting costs",
-        status: "approved"
-    },
-    {
-        id: "2",
-        title: "UI/UX Design License",
-        amount: 2500,
-        category: "Design",
-        date: "2024-03-14",
-        description: "Figma annual subscription",
-        status: "approved"
-    },
-    {
-        id: "3",
-        title: "Marketing Campaign",
-        amount: 8000,
-        category: "Marketing",
-        date: "2024-03-13",
-        description: "Q1 social media campaign",
-        status: "pending"
-    },
-    {
-        id: "4",
-        title: "Development Tools",
-        amount: 1200,
-        category: "Development",
-        date: "2024-03-12",
-        description: "JetBrains licenses",
-        status: "approved"
-    },
-]
+import { useMockDataContext } from "@/contexts/MockDataContext"
+import { mockBudgetCategories, mockExpenses, type BudgetCategory, type Expense } from "@/lib/mock-data"
 
 export default function BudgetPage() {
-    const [categories, setCategories] = useState<BudgetCategory[]>(mockCategories)
-    const [expenses, setExpenses] = useState<Expense[]>(mockExpenses)
+    const { useMockData } = useMockDataContext()
+    const [categories, setCategories] = useState<BudgetCategory[]>(useMockData ? mockBudgetCategories : [])
+    const [expenses, setExpenses] = useState<Expense[]>(useMockData ? mockExpenses : [])
     const [searchQuery, setSearchQuery] = useState("")
     const [dialogOpen, setDialogOpen] = useState(false)
     const [newExpense, setNewExpense] = useState({

@@ -4,6 +4,9 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
     ArrowLeft,
     Github,
@@ -17,18 +20,51 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { ProjectsService, type ProjectData } from "@/lib/services/projects.service"
+import { FileBrowser } from "@/components/projects/file-browser"
+import { TasksService, type Task } from "@/lib/services/tasks.service"
+import { EquipmentService, type Equipment } from "@/lib/services/equipment.service"
+import { TaskList } from "@/components/tasks/task-list"
+import { TaskDialog } from "@/components/tasks/task-dialog"
+import { EquipmentList } from "@/components/equipment/equipment-list"
+import { EquipmentDialog } from "@/components/equipment/equipment-dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/components/auth/AuthProvider"
+import { Plus } from "lucide-react"
 
 type ProjectDetailsProps = {
     params: Promise<{ id: string }>
 }
 
+type ReadmeData = {
+    projectName: string
+    projectDescription: string
+    installation: string
+    usage: string
+    features: string
+    requirements: string
+    configuration: string
+    contributors: string
+}
+
 export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
     const router = useRouter()
+    const { user } = useAuth()
     const [projectId, setProjectId] = useState<string>("")
     const [project, setProject] = useState<ProjectData | null>(null)
     const [loading, setLoading] = useState(true)
     const [editing, setEditing] = useState(false)
-    const [readmeData, setReadmeData] = useState({
+    
+    // Tasks state
+    const [tasks, setTasks] = useState<Task[]>([])
+    const [taskDialogOpen, setTaskDialogOpen] = useState(false)
+    const [editingTask, setEditingTask] = useState<Task | null>(null)
+    
+    // Equipment state
+    const [equipment, setEquipment] = useState<Equipment[]>([])
+    const [equipmentDialogOpen, setEquipmentDialogOpen] = useState(false)
+    const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null)
+    
+    const [readmeData, setReadmeData] = useState<ReadmeData>({
         projectName: "",
         projectDescription: "",
         installation: "",
@@ -39,12 +75,38 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
         contributors: "",
     })
 
+    // Team state
+    const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+    const [userRole, setUserRole] = useState<MemberRole | null>(null)
+
     useEffect(() => {
         params.then(p => {
             setProjectId(p.id)
             loadProject(p.id)
         })
     }, [params])
+
+    useEffect(() => {
+        if (projectId && user) {
+            TeamService.getUserRole(projectId, user.uid).then(role => {
+                setUserRole(role)
+            })
+        }
+    }, [projectId, user])
+
+    // Subscribe to tasks
+    useEffect(() => {
+        if (!projectId) return
+        const unsubscribe = TasksService.subscribeToTasks(projectId, setTasks)
+        return () => unsubscribe()
+    }, [projectId])
+
+    // Subscribe to equipment
+    useEffect(() => {
+        if (!projectId) return
+        const unsubscribe = EquipmentService.subscribeToEquipment(projectId, setEquipment)
+        return () => unsubscribe()
+    }, [projectId])
 
     const loadProject = async (id: string) => {
         setLoading(true)
@@ -54,7 +116,16 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                 // @ts-ignore - types mismatch between local and service, fixing soon
                 setProject(projectData)
                 if (projectData.readme) {
-                    setReadmeData(projectData.readme)
+                    setReadmeData({
+                        projectName: projectData.readme.projectName || "",
+                        projectDescription: projectData.readme.projectDescription || "",
+                        installation: projectData.readme.installation || "",
+                        usage: projectData.readme.usage || "",
+                        features: projectData.readme.features || "",
+                        requirements: projectData.readme.requirements || "",
+                        configuration: projectData.readme.configuration || "",
+                        contributors: projectData.readme.contributors || "",
+                    })
                 } else if (projectData.type === "github" && projectData.url) {
                     fetchGitHubReadme(projectData)
                 }
@@ -85,7 +156,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                 const content = atob(data.content)
 
                 // Parse README content to extract fields
-                const parsed = parseReadme(content)
+                const parsed = parseReadme(content) as ReadmeData
                 setReadmeData(parsed)
 
                 // Optionally save this back to the project?
@@ -96,9 +167,9 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
         }
     }
 
-    const parseReadme = (content: string) => {
+    const parseReadme = (content: string): ReadmeData => {
         // Simple README parser - looks for common sections
-        const sections: any = {
+        const sections: ReadmeData = {
             projectName: "",
             projectDescription: "",
             installation: "",
@@ -110,7 +181,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
         }
 
         const lines = content.split('\n')
-        let currentSection = ""
+        let currentSection: keyof ReadmeData | "" = ""
         let currentContent: string[] = []
 
         const saveSection = () => {
@@ -149,6 +220,70 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
 
         saveSection()
         return sections
+    }
+
+    // Task handlers
+    const handleCreateTask = async (taskData: Partial<Task>) => {
+        if (!user) return
+        try {
+            await TasksService.createTask(projectId, {
+                ...taskData as Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'subtasks' | 'requirements' | 'progress'>,
+                createdBy: user.uid
+            })
+        } catch (error) {
+            console.error("Error creating task:", error)
+            alert("Failed to create task")
+        }
+    }
+
+    const handleUpdateTask = async (taskData: Partial<Task>) => {
+        if (!editingTask) return
+        try {
+            await TasksService.updateTask(editingTask.id, taskData)
+        } catch (error) {
+            console.error("Error updating task:", error)
+            alert("Failed to update task")
+        }
+    }
+
+    const handleDeleteTask = async (taskId: string) => {
+        if (!confirm("Are you sure you want to delete this task?")) return
+        try {
+            await TasksService.deleteTask(taskId)
+        } catch (error) {
+            console.error("Error deleting task:", error)
+            alert("Failed to delete task")
+        }
+    }
+
+    // Equipment handlers
+    const handleCreateEquipment = async (equipmentData: Partial<Equipment>) => {
+        try {
+            await EquipmentService.createEquipment(projectId, equipmentData as Omit<Equipment, 'id' | 'createdAt' | 'updatedAt'>)
+        } catch (error) {
+            console.error("Error creating equipment:", error)
+            alert("Failed to create equipment")
+        }
+    }
+
+    const handleUpdateEquipment = async (equipmentData: Partial<Equipment>) => {
+        if (!editingEquipment) return
+        try {
+            await EquipmentService.updateEquipment(editingEquipment.id, equipmentData)
+        } catch (error) {
+            console.error("Error updating equipment:", error)
+            alert("Failed to update equipment")
+        }
+    }
+
+    const handleDeleteEquipment = async (equipmentId: string) => {
+        if (!confirm("Are you sure you want to delete this equipment?")) return
+        try {
+            await EquipmentService.deleteEquipment(equipmentId)
+        } catch (error) {
+            console.error("Error deleting equipment:", error)
+            alert("Failed to delete equipment")
+        }
     }
 
     const handleSave = async () => {
@@ -284,6 +419,120 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                 </Card>
             </div>
 
+            {/* Tabbed Interface for Files, Tasks, Equipment, and Team */}
+            <Tabs defaultValue="files" className="w-full">
+                <div className="flex items-center justify-between mb-4">
+                    <TabsList>
+                        <TabsTrigger value="files">Files</TabsTrigger>
+                        <TabsTrigger value="tasks">
+                            Tasks
+                            {tasks.length > 0 && (
+                                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary/10">
+                                    {tasks.length}
+                                </span>
+                            )}
+                        </TabsTrigger>
+                        <TabsTrigger value="equipment">
+                            Equipment
+                            {equipment.length > 0 && (
+                                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-primary/10">
+                                    {equipment.length}
+                                </span>
+                            )}
+                        </TabsTrigger>
+                        <TabsTrigger value="team">Team</TabsTrigger>
+                    </TabsList>
+                </div>
+
+                <TabsContent value="files" className="mt-0">
+                    <FileBrowser projectId={projectId} />
+                </TabsContent>
+
+                <TabsContent value="tasks" className="mt-0">
+                    <div className="space-y-4">
+                        <div className="flex justify-end">
+                            <Button onClick={() => {
+                                setEditingTask(null)
+                                setTaskDialogOpen(true)
+                            }}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                New Task
+                            </Button>
+                        </div>
+                        <TaskList
+                            tasks={tasks}
+                            onEdit={(task) => {
+                                setEditingTask(task)
+                                setTaskDialogOpen(true)
+                            }}
+                            onDelete={handleDeleteTask}
+                            onStatusChange={async (taskId, status) => {
+                                await TasksService.updateTask(taskId, { status })
+                            }}
+                        />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="equipment" className="mt-0">
+                    <div className="space-y-4">
+                        <div className="flex justify-end">
+                            <Button onClick={() => {
+                                setEditingEquipment(null)
+                                setEquipmentDialogOpen(true)
+                            }}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Equipment
+                            </Button>
+                        </div>
+                        <EquipmentList
+                            equipment={equipment}
+                            onEdit={(equip) => {
+                                setEditingEquipment(equip)
+                                setEquipmentDialogOpen(true)
+                            }}
+                            onDelete={handleDeleteEquipment}
+                        />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="team" className="mt-0">
+                    <TeamList
+                        projectId={projectId}
+                        currentUserId={user?.uid || ''}
+                        currentUserRole={userRole || 'viewer'}
+                        onInviteClick={() => setInviteDialogOpen(true)}
+                    />
+                </TabsContent>
+            </Tabs>
+
+            {/* Task Dialog */}
+            <TaskDialog
+                open={taskDialogOpen}
+                onOpenChange={setTaskDialogOpen}
+                onSave={editingTask ? handleUpdateTask : handleCreateTask}
+                task={editingTask}
+                userId={user?.uid || ''}
+                projectId={projectId}
+            />
+
+            {/* Equipment Dialog */}
+            <EquipmentDialog
+                open={equipmentDialogOpen}
+                onOpenChange={setEquipmentDialogOpen}
+                onSave={editingEquipment ? handleUpdateEquipment : handleCreateEquipment}
+                equipment={editingEquipment}
+            />
+
+            {/* Invite Dialog */}
+            <InviteDialog
+                open={inviteDialogOpen}
+                onOpenChange={setInviteDialogOpen}
+                projectId={projectId}
+                projectName={project.name}
+                currentUserId={user?.uid || ''}
+                currentUserName={user?.displayName || user?.email?.split('@')[0] || 'User'}
+            />
+
             {/* README Editor */}
             {project.type === "github" && (
                 <Card>
@@ -318,14 +567,14 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                                     <Label>Project Name</Label>
                                     <Input
                                         value={readmeData.projectName}
-                                        onChange={(e) => setReadmeData({ ...readmeData, projectName: e.target.value })}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReadmeData({ ...readmeData, projectName: e.target.value })}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Description</Label>
                                     <Textarea
                                         value={readmeData.projectDescription}
-                                        onChange={(e) => setReadmeData({ ...readmeData, projectDescription: e.target.value })}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReadmeData({ ...readmeData, projectDescription: e.target.value })}
                                         rows={3}
                                     />
                                 </div>
@@ -333,7 +582,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                                     <Label>Installation</Label>
                                     <Textarea
                                         value={readmeData.installation}
-                                        onChange={(e) => setReadmeData({ ...readmeData, installation: e.target.value })}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReadmeData({ ...readmeData, installation: e.target.value })}
                                         rows={4}
                                     />
                                 </div>
@@ -341,7 +590,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                                     <Label>Usage</Label>
                                     <Textarea
                                         value={readmeData.usage}
-                                        onChange={(e) => setReadmeData({ ...readmeData, usage: e.target.value })}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReadmeData({ ...readmeData, usage: e.target.value })}
                                         rows={4}
                                     />
                                 </div>
@@ -349,7 +598,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                                     <Label>Features</Label>
                                     <Textarea
                                         value={readmeData.features}
-                                        onChange={(e) => setReadmeData({ ...readmeData, features: e.target.value })}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReadmeData({ ...readmeData, features: e.target.value })}
                                         rows={4}
                                     />
                                 </div>
@@ -357,7 +606,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                                     <Label>Requirements</Label>
                                     <Textarea
                                         value={readmeData.requirements}
-                                        onChange={(e) => setReadmeData({ ...readmeData, requirements: e.target.value })}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReadmeData({ ...readmeData, requirements: e.target.value })}
                                         rows={3}
                                     />
                                 </div>
@@ -365,7 +614,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                                     <Label>Configuration</Label>
                                     <Textarea
                                         value={readmeData.configuration}
-                                        onChange={(e) => setReadmeData({ ...readmeData, configuration: e.target.value })}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReadmeData({ ...readmeData, configuration: e.target.value })}
                                         rows={3}
                                     />
                                 </div>
@@ -373,7 +622,7 @@ export default function ProjectDetailsPage({ params }: ProjectDetailsProps) {
                                     <Label>Contributors</Label>
                                     <Textarea
                                         value={readmeData.contributors}
-                                        onChange={(e) => setReadmeData({ ...readmeData, contributors: e.target.value })}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReadmeData({ ...readmeData, contributors: e.target.value })}
                                         rows={2}
                                     />
                                 </div>

@@ -1,109 +1,71 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Plus, Search, Zap } from "lucide-react"
 import { AutomationCard, type Automation } from "@/components/automations/automation-card"
 import { AutomationDialog, type NewAutomation } from "@/components/automations/automation-dialog"
-
-const initialAutomations: Automation[] = [
-    {
-        id: "1",
-        name: "Daily Project Backup",
-        description: "Automatically backup all project files every day",
-        enabled: true,
-        trigger: {
-            type: "time",
-            config: "Daily at 2:00 AM"
-        },
-        actions: [
-            { type: "file", config: "Create backup of all project files" },
-            { type: "notification", config: "Notify admin of successful backup" }
-        ],
-        lastRun: "2 hours ago",
-        status: "success",
-        runsCount: 45
-    },
-    {
-        id: "2",
-        name: "New File Notification",
-        description: "Send notification when new files are uploaded",
-        enabled: true,
-        trigger: {
-            type: "file",
-            config: "When new file is uploaded to project"
-        },
-        actions: [
-            { type: "notification", config: "Notify team members" },
-            { type: "email", config: "Send email to project@example.com" }
-        ],
-        lastRun: "5 minutes ago",
-        status: "success",
-        runsCount: 128
-    },
-    {
-        id: "3",
-        name: "Status Change Alert",
-        description: "Alert team when project status changes",
-        enabled: false,
-        trigger: {
-            type: "event",
-            config: "When project status changes"
-        },
-        actions: [
-            { type: "notification", config: "Send alert to all team members" }
-        ],
-        lastRun: "3 days ago",
-        status: "success",
-        runsCount: 12
-    }
-]
+import { AutomationService } from "@/lib/services/automation.service"
+import { useAuth } from "@/components/auth/AuthProvider"
 
 export default function AutomationsPage() {
-    const [automations, setAutomations] = useState<Automation[]>(initialAutomations)
+    const { user } = useAuth()
+    const [automations, setAutomations] = useState<Automation[]>([])
     const [dialogOpen, setDialogOpen] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
 
-    const handleToggle = (id: string) => {
-        setAutomations(automations.map(auto =>
-            auto.id === id ? { ...auto, enabled: !auto.enabled } : auto
-        ))
+    useEffect(() => {
+        if (!user) return
+
+        const unsubscribe = AutomationService.subscribeToAutomations(user.uid, (data) => {
+            setAutomations(data)
+        })
+
+        return () => unsubscribe()
+    }, [user])
+
+    const handleToggle = async (id: string) => {
+        const automation = automations.find(a => a.id === id)
+        if (automation) {
+            await AutomationService.updateAutomation(id, { enabled: !automation.enabled })
+        }
     }
 
     const handleEdit = (id: string) => {
         alert(`Edit automation ${id} - Coming soon!`)
     }
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm("Are you sure you want to delete this automation?")) {
-            setAutomations(automations.filter(auto => auto.id !== id))
+            await AutomationService.deleteAutomation(id)
         }
     }
 
-    const handleSaveAutomation = (newAuto: NewAutomation) => {
-        const automation: Automation = {
-            id: Date.now().toString(),
+    const handleSaveAutomation = async (newAuto: NewAutomation) => {
+        if (!user) return
+        
+        await AutomationService.createAutomation({
             name: newAuto.name,
             description: newAuto.description,
             enabled: true,
             trigger: newAuto.trigger,
             actions: newAuto.actions,
-            status: "never",
-            runsCount: 0
-        }
-        setAutomations([...automations, automation])
+            userId: user.uid
+        })
     }
 
     const filteredAutomations = automations.filter(auto =>
         auto.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        auto.description.toLowerCase().includes(searchQuery.toLowerCase())
+        auto.description?.toLowerCase().includes(searchQuery.toLowerCase())
     )
 
     const activeCount = automations.filter(a => a.enabled).length
     const totalRuns = automations.reduce((sum, a) => sum + a.runsCount, 0)
-    const successRate = automations.filter(a => a.status === "success").length / automations.length * 100
+    const successRate = automations.length > 0 
+        ? automations.filter(a => a.status === "success").length / automations.length * 100 
+        : 0
 
     return (
         <div className="space-y-6">

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { InvitationsDropdown } from "@/components/team/invitations-dropdown"
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
@@ -51,6 +52,7 @@ export function Header() {
                 </div>
             </div>
             <div className="flex items-center gap-4">
+                <InvitationsDropdown />
                 <Button variant="ghost" size="icon">
                     <Bell className="h-5 w-5" />
                 </Button>

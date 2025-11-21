@@ -6,27 +6,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Folder, FileText, Search, Grid, List, ChevronRight, Home } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-type FileItem = {
-    id: string
-    name: string
-    type: "folder" | "file"
-    size?: string
-    modified: string
-}
-
-const mockFiles: FileItem[] = [
-    { id: "1", name: "Project Alpha", type: "folder", modified: "2024-03-10" },
-    { id: "2", name: "Marketing Assets", type: "folder", modified: "2024-03-12" },
-    { id: "3", name: "Design Specs.pdf", type: "file", size: "2.4 MB", modified: "2024-03-15" },
-    { id: "4", name: "Logo.svg", type: "file", size: "15 KB", modified: "2024-03-14" },
-    { id: "5", name: "Meeting Notes.docx", type: "file", size: "12 KB", modified: "2024-03-11" },
-]
+import { useMockDataContext } from "@/contexts/MockDataContext"
+import { mockFiles, type FileItem } from "@/lib/mock-data"
 
 export default function FilesPage() {
+    const { useMockData } = useMockDataContext()
     const [view, setView] = useState<"grid" | "list">("grid")
     const [currentPath, setCurrentPath] = useState<string[]>([])
-    const [files, setFiles] = useState<FileItem[]>(mockFiles)
+    const [files, setFiles] = useState<FileItem[]>(useMockData ? mockFiles : [])
     const [searchQuery, setSearchQuery] = useState("")
 
     const handleNavigate = (folderName: string) => {
@@ -122,7 +109,7 @@ export default function FilesPage() {
                     </Button>
                     {currentPath.map((folder, index) => (
                         <div key={index} className="flex items-center">
-                            < ChevronRight className="h-4 w-4 mx-1" />
+                            <ChevronRight className="h-4 w-4 mx-1" />
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -142,7 +129,7 @@ export default function FilesPage() {
                         <Folder className="h-12 w-12 text-muted-foreground mb-4" />
                         <p className="text-lg font-medium">No files found</p>
                         <p className="text-sm text-muted-foreground">
-                            {searchQuery ? "Try a different search term" : "Upload a file to get started"}
+                            {searchQuery ? "Try a different search term" : useMockData ? "Upload a file to get started" : "Enable mock data in Settings > Developer to see sample files"}
                         </p>
                     </CardContent>
                 </Card>

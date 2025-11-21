@@ -2,12 +2,14 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { AuthProvider, useAuth } from '@/components/auth/AuthProvider'
+import { MockDataProvider } from '@/contexts/MockDataContext'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
+import { ThemeProvider } from '@/components/theme-provider'
 
-function AuthGuard({ children }: { children: React.ReactNode }) {
+function AuthGuard({ children }: { children: React.ReactNode}) {
     const { user, loading } = useAuth()
     const pathname = usePathname()
     const router = useRouter()
@@ -56,8 +58,17 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
     return (
-        <AuthProvider>
-            <AuthGuard>{children}</AuthGuard>
-        </AuthProvider>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+            <AuthProvider>
+                <MockDataProvider>
+                    <AuthGuard>{children}</AuthGuard>
+                </MockDataProvider>
+            </AuthProvider>
+        </ThemeProvider>
     )
 }

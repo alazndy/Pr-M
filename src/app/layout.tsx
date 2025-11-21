@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClientLayout } from "@/components/layout/ClientLayout";
@@ -33,6 +34,8 @@ export default function RootLayout({
         <ClientLayout>
           {children}
         </ClientLayout>
+        <Script src="https://apis.google.com/js/api.js" strategy="lazyOnload" />
+        <Script src="https://accounts.google.com/gsi/client" strategy="lazyOnload" />
       </body>
     </html>
   );
