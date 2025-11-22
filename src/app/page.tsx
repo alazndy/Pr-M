@@ -232,7 +232,7 @@ export default function Home() {
                   <div className="text-2xl font-bold">
                     {allTasks.filter(t => {
                       if (!t.deadline) return false
-                      const deadlineDate = t.deadline.toDate ? t.deadline.toDate() : new Date(t.deadline)
+                      const deadlineDate = (t.deadline as any).toDate ? (t.deadline as any).toDate() : new Date(t.deadline as any)
                       return deadlineDate < new Date() && t.status !== 'completed'
                     }).length}
                   </div>
@@ -249,13 +249,13 @@ export default function Home() {
                 {allTasks
                   .filter(t => t.deadline && t.status !== 'completed')
                   .sort((a, b) => {
-                    const aDate = a.deadline!.toDate ? a.deadline!.toDate() : new Date(a.deadline!)
-                    const bDate = b.deadline!.toDate ? b.deadline!.toDate() : new Date(b.deadline!)
+                    const aDate = (a.deadline! as any).toDate ? (a.deadline! as any).toDate() : new Date(a.deadline! as any)
+                    const bDate = (b.deadline! as any).toDate ? (b.deadline! as any).toDate() : new Date(b.deadline! as any)
                     return aDate.getTime() - bDate.getTime()
                   })
                   .slice(0, 5)
                   .map((task) => {
-                    const deadlineDate = task.deadline!.toDate ? task.deadline!.toDate() : new Date(task.deadline!)
+                    const deadlineDate = (task.deadline! as any).toDate ? (task.deadline! as any).toDate() : new Date(task.deadline! as any)
                     const daysUntil = Math.ceil((deadlineDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
                     const isOverdue = daysUntil < 0
                     

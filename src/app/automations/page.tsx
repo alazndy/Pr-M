@@ -20,7 +20,7 @@ export default function AutomationsPage() {
         if (!user) return
 
         const unsubscribe = AutomationService.subscribeToAutomations(user.uid, (data) => {
-            setAutomations(data)
+            setAutomations(data as any)
         })
 
         return () => unsubscribe()
@@ -51,7 +51,7 @@ export default function AutomationsPage() {
             description: newAuto.description,
             enabled: true,
             trigger: newAuto.trigger,
-            actions: newAuto.actions,
+            actions: newAuto.actions as any,
             userId: user.uid
         })
     }

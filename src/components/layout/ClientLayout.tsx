@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { AuthProvider, useAuth } from '@/components/auth/AuthProvider'
 import { MockDataProvider } from '@/contexts/MockDataContext'
+import { ProjectDataProvider } from '@/contexts/ProjectContext'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { useEffect } from 'react'
@@ -66,7 +67,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         >
             <AuthProvider>
                 <MockDataProvider>
-                    <AuthGuard>{children}</AuthGuard>
+                    <ProjectDataProvider>
+                        <AuthGuard>{children}</AuthGuard>
+                    </ProjectDataProvider>
                 </MockDataProvider>
             </AuthProvider>
         </ThemeProvider>

@@ -8,7 +8,7 @@ import { Clock, FileText, Zap, Mail, Bell, Edit, Trash2, CheckCircle2, XCircle, 
 export type Automation = {
     id: string
     name: string
-    description: string
+    description?: string
     enabled: boolean
     trigger: {
         type: "time" | "event" | "file"

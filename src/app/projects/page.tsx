@@ -78,7 +78,14 @@ export default function ProjectsPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
     const [githubDialogOpen, setGithubDialogOpen] = useState(false)
-    const [newProject, setNewProject] = useState({ name: '', description: '' })
+    const [newProject, setNewProject] = useState({ 
+        name: '', 
+        description: '',
+        url: '',
+        branch: '',
+        language: '',
+        readmeContent: ''
+    })
     const [syncing, setSyncing] = useState(false)
 
     // Subscribe to projects from Firestore
@@ -100,13 +107,35 @@ export default function ProjectsPage() {
     const handleCreateProject = async () => {
         if (newProject.name && user) {
             try {
-                await ProjectsService.createProject(user.uid, {
+                // Parse README content if provided
+                let readmeData = undefined;
+                if (newProject.readmeContent) {
+                    readmeData = parseReadmeContent(newProject.readmeContent);
+                }
+
+                // Build project data, only including fields with values
+                const projectData: any = {
                     name: newProject.name,
                     description: newProject.description,
                     type: "manual",
-                })
+                };
+
+                // Only add optional fields if they have values
+                if (newProject.url) projectData.url = newProject.url;
+                if (newProject.branch) projectData.branch = newProject.branch;
+                if (newProject.language) projectData.language = newProject.language;
+                if (readmeData) projectData.readme = readmeData;
+
+                await ProjectsService.createProject(user.uid, projectData)
                 
-                setNewProject({ name: "", description: "" })
+                setNewProject({ 
+                    name: "", 
+                    description: "",
+                    url: "",
+                    branch: "",
+                    language: "",
+                    readmeContent: ""
+                })
                 setCreateDialogOpen(false)
             } catch (error) {
                 console.error("Error creating project:", error)
@@ -162,8 +191,8 @@ export default function ProjectsPage() {
                         name: repo.name,
                         description: repo.description || '',
                         type: 'github',
-                        url: repo.html_url,
-                        readme: null // Will be fetched when opening project
+                        url: repo.html_url
+                        // readme will be fetched when opening project
                     })
                     importedCount++
                 }
@@ -266,30 +295,78 @@ export default function ProjectsPage() {
                                 New Project
                             </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
                                 <DialogTitle>Create New Project</DialogTitle>
                                 <DialogDescription>
-                                    Add a new project to your workspace.
+                                    Add a new project to your workspace manually.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="name">Name</Label>
-                                    <Input
-                                        id="name"
-                                        value={newProject.name}
-                                        onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                                        placeholder="Project Name"
-                                    />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="name">Name *</Label>
+                                        <Input
+                                            id="name"
+                                            value={newProject.name}
+                                            onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                                            placeholder="Project Name"
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="language">Language</Label>
+                                        <Input
+                                            id="language"
+                                            value={newProject.language}
+                                            onChange={(e) => setNewProject({ ...newProject, language: e.target.value })}
+                                            placeholder="e.g. TypeScript, Python"
+                                        />
+                                    </div>
                                 </div>
+                                
                                 <div className="grid gap-2">
                                     <Label htmlFor="description">Description</Label>
                                     <Textarea
                                         id="description"
                                         value={newProject.description}
                                         onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                                        placeholder="Project Description"
+                                        placeholder="Brief project description"
+                                        className="h-20"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="url">Repository URL (Optional)</Label>
+                                        <Input
+                                            id="url"
+                                            value={newProject.url}
+                                            onChange={(e) => setNewProject({ ...newProject, url: e.target.value })}
+                                            placeholder="https://github.com/..."
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="branch">Branch (Optional)</Label>
+                                        <Input
+                                            id="branch"
+                                            value={newProject.branch}
+                                            onChange={(e) => setNewProject({ ...newProject, branch: e.target.value })}
+                                            placeholder="main, master, etc."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="readme">Project Documentation / README</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Paste your README content here. It will be parsed to populate project details.
+                                    </p>
+                                    <Textarea
+                                        id="readme"
+                                        value={newProject.readmeContent}
+                                        onChange={(e) => setNewProject({ ...newProject, readmeContent: e.target.value })}
+                                        placeholder="# Project Title\n\n## Installation\n..."
+                                        className="h-40 font-mono text-xs"
                                     />
                                 </div>
                             </div>
@@ -297,7 +374,9 @@ export default function ProjectsPage() {
                                 <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                                     Cancel
                                 </Button>
-                                <Button onClick={handleCreateProject}>Create Project</Button>
+                                <Button onClick={handleCreateProject} disabled={!newProject.name}>
+                                    Create Project
+                                </Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
@@ -363,7 +442,7 @@ export default function ProjectsPage() {
                                         </span>
                                         {project.updatedAt && (
                                             <span className="px-2 py-1 bg-secondary rounded-md text-xs">
-                                                Updated: {new Date(project.updatedAt.seconds * 1000).toLocaleDateString()}
+                                                Updated: {new Date(project.updatedAt instanceof Date ? project.updatedAt : project.updatedAt.seconds * 1000).toLocaleDateString()}
                                             </span>
                                         )}
                                     </div>

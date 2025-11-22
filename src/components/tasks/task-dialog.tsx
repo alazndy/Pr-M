@@ -79,17 +79,21 @@ export function TaskDialog({ open, onOpenChange, onSave, task, userId, projectId
             description,
             status,
             priority,
-            deadline: deadline ? Timestamp.fromDate(new Date(deadline)) : undefined,
-            estimatedHours: estimatedHours ? parseFloat(estimatedHours) : undefined,
             subtasks,
             requirements,
             createdBy: userId,
-            assignedTo: assignedTo || null,
-            assignedToName: assignedMember?.displayName || null,
-            assignedToEmail: assignedMember?.email || null,
-            assignedToPhoto: assignedMember?.photoURL || null,
-            assignedAt: assignedTo ? Timestamp.now() : null,
-            assignedBy: assignedTo ? userId : null
+        }
+
+        // Only add optional fields if they have values
+        if (deadline) taskData.deadline = Timestamp.fromDate(new Date(deadline));
+        if (estimatedHours) taskData.estimatedHours = parseFloat(estimatedHours);
+        if (assignedTo && assignedTo !== "unassigned") {
+            taskData.assignedTo = assignedTo;
+            taskData.assignedAt = Timestamp.now();
+            taskData.assignedBy = userId;
+            if (assignedMember?.displayName) taskData.assignedToName = assignedMember.displayName;
+            if (assignedMember?.email) taskData.assignedToEmail = assignedMember.email;
+            if (assignedMember?.photoURL) taskData.assignedToPhoto = assignedMember.photoURL;
         }
 
         onSave(taskData)
